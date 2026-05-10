@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>F1 Bike HUD White</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial, sans-serif;
+      background: linear-gradient(180deg, #ffffff, #f3f4f6);
+      color: #111827;
+      overflow-x: hidden;
+    }
+
+    .app {
+      min-height: 100vh;
+      padding: 14px;
+      background:
+        radial-gradient(circle at top, rgba(225,6,0,0.12), transparent 35%),
+        linear-gradient(180deg, #fff, #f5f6f8);
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 2px solid #e10600;
+      background: rgba(255,255,255,0.92);
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    .logo {
+      color: #e10600;
+      font-size: 30px;
+      font-weight: 900;
+      font-style: italic;
+    }
+
+    .mode {
+      color: #16a34a;
+      font-size: 13px;
+    }
+
+    .speed-panel {
+      margin-top: 18px;
+      padding: 32px 16px;
+      border-radius: 30px;
+      background: linear-gradient(180deg, #ffffff, #f4f5f7);
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.10);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .speed-panel:before {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border: 9px solid rgba(0,0,0,0.055);
+      border-top-color: #e10600;
+      border-right-color: #e10600;
+      border-radius: 50%;
+      opacity: 0.8;
+    }
+
+    .speed-label {
+      position: relative;
+      color: #6b7280;
+      font-size: 16px;
+      letter-spacing: 4px;
+      margin-bottom: 6px;
+    }
+
+    #speed {
+      position: relative;
+      font-size: 88px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -4px;
+      color: #111827;
+      text-shadow: 0 8px 18px rgba(0,0,0,0.12);
+    }
+
+    .unit {
+      position: relative;
+      color: #e10600;
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      margin-top: 8px;
+    }
+
+    .stats {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .card {
+      border-radius: 20px;
+      padding: 15px;
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.08);
+    }
+
+    .label {
+      font-size: 12px;
+      color: #6b7280;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+
+    .value {
+      font-size: 29px;
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .small-unit {
+      color: #e10600;
+      font-size: 14px;
+      margin-left: 4px;
+    }
+
+    .map-wrap {
+      margin-top: 16px;
+      border-radius: 24px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 14px 34px rgba(0,0,0,0.10);
+    }
+
+    .map-title {
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      background: #ffffff;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .dot {
+      color: #e10600;
+      margin-right: 8px;
+    }
+
+    #map {
+      height: 42vh;
+      width: 100%;
+      filter: none;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    button {
+      border: none;
+      border-radius: 18px;
+      padding: 18px;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      cursor: pointer;
+    }
+
+    .start {
+      color: white;
+      background: linear-gradient(135deg, #ff1a1a, #e10600);
+      box-shadow: 0 12px 28px rgba(225,6,0,0.35);
+    }
+
+    .stop {
+      color: #111827;
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+    }
+
+    #status {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .leaflet-control-attribution {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="logo">F1</div>
+    <div>
+      <div>RIDE MODE</div>
+      <div class="mode" id="gpsStatus">STANDBY</div>
+    </div>
+    <div id="clock">--:--</div>
+  </div>
+
+  <div class="speed-panel">
+    <div class="speed-label">SPEED</div>
+    <div id="speed">0.0</div>
+    <div class="unit">KM/H</div>
+  </div>
+
+  <div class="stats">
+    <div class="card">
+      <div class="label">DISTANCE</div>
+      <div class="value"><span id="distance">0.00</span><span class="small-unit">KM</span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">TIME</div>
+      <div class="value" id="time">00:00</div>
+    </div>
+
+    <div class="card">
+      <div class="label">AVG SPEED</div>
+      <div class="value"><span id="avgSpeed">0.0</span><span class="small-unit">KM/H</span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">MAX SPEED</div>
+      <div class="value"><span id="maxSpeed">0.0</span><span class="small-unit">KM/H</span></div>
+    </div>
+  </div>
+
+  <div class="map-wrap">
+    <div class="map-title"><span class="dot">●</span>TRACK MAP</div>
+    <div id="map"></div>
+  </div>
+
+  <div class="controls">
+    <button class="start" onclick="startRide()">▶ START</button>
+    <button class="stop" onclick="stopRide()">■ STOP</button>
+  </div>
+
+  <div id="status">等待开始骑行</div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+  let watchId = null;
+  let startTime = null;
+  let timerId = null;
+
+  let lastPoint = null;
+  let totalDistance = 0;
+  let maxSpeed = 0;
+
+  const map = L.map('map', {
+    zoomControl: false
+  }).setView([25.033, 121.565], 15);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  let marker = null;
+
+  let route = L.polyline([], {
+    color: '#e10600',
+    weight: 6,
+    opacity: 0.95
+  }).addTo(map);
+
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  function startRide() {
+    if (!navigator.geolocation) {
+      alert("浏览器不支持定位");
+      return;
+    }
+
+    resetRide();
+
+    startTime = Date.now();
+    document.getElementById("status").innerText = "GPS 定位中...";
+    document.getElementById("gpsStatus").innerText = "TRACKING";
+
+    timerId = setInterval(updateTime, 1000);
+
+    watchId = navigator.geolocation.watchPosition(
+      handlePosition,
+      handleError,
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000
+      }
+    );
+  }
+
+  function stopRide() {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+
+    if (timerId !== null) {
+      clearInterval(timerId);
+      timerId = null;
+    }
+
+    document.getElementById("status").innerText = "已停止";
+    document.getElementById("gpsStatus").innerText = "STOPPED";
+    document.getElementById("speed").innerText = "0.0";
+  }
+
+  function resetRide() {
+    lastPoint = null;
+    totalDistance = 0;
+    maxSpeed = 0;
+
+    route.setLatLngs([]);
+
+    document.getElementById("speed").innerText = "0.0";
+    document.getElementById("distance").innerText = "0.00";
+    document.getElementById("avgSpeed").innerText = "0.0";
+    document.getElementById("maxSpeed").innerText = "0.0";
+    document.getElementById("time").innerText = "00:00";
+  }
+
+  function handlePosition(pos) {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const accuracy = pos.coords.accuracy;
+
+    const point = {
+      lat,
+      lng,
+      time: Date.now()
+    };
+
+    let kmh = 0;
+
+    if (pos.coords.speed !== null && pos.coords.speed >= 0) {
+      kmh = pos.coords.speed * 3.6;
+    } else if (lastPoint) {
+      const d = getDistance(lastPoint.lat, lastPoint.lng, lat, lng);
+      const dt = (point.time - lastPoint.time) / 1000;
+      if (dt > 0) {
+        kmh = (d / dt) * 3.6;
+      }
+    }
+
+    if (kmh < 1) kmh = 0;
+
+    if (lastPoint) {
+      const segment = getDistance(lastPoint.lat, lastPoint.lng, lat, lng);
+
+      if (accuracy < 40 && segment < 80) {
+        totalDistance += segment;
+      }
+    }
+
+    lastPoint = point;
+    maxSpeed = Math.max(maxSpeed, kmh);
+
+    const elapsedHours = (Date.now() - startTime) / 1000 / 3600;
+    const avgSpeed = elapsedHours > 0 ? (totalDistance / 1000) / elapsedHours : 0;
+
+    document.getElementById("speed").innerText = kmh.toFixed(1);
+    document.getElementById("distance").innerText = (totalDistance / 1000).toFixed(2);
+    document.getElementById("avgSpeed").innerText = avgSpeed.toFixed(1);
+    document.getElementById("maxSpeed").innerText = maxSpeed.toFixed(1);
+    document.getElementById("status").innerText = `GPS 精度约 ${accuracy.toFixed(0)} 米`;
+
+    const latlng = [lat, lng];
+
+    if (!marker) {
+      marker = L.circleMarker(latlng, {
+        radius: 9,
+        color: '#ffffff',
+        weight: 3,
+        fillColor: '#e10600',
+        fillOpacity: 1
+      }).addTo(map);
+      map.setView(latlng, 17);
+    } else {
+      marker.setLatLng(latlng);
+    }
+
+    route.addLatLng(latlng);
+    map.panTo(latlng);
+  }
+
+  function updateTime() {
+    if (!startTime) return;
+
+    const seconds = Math.floor((Date.now() - startTime) / 1000);
+    const min = Math.floor(seconds / 60);
+    const sec = seconds % 60;
+
+    document.getElementById("time").innerText =
+      String(min).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
+  }
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById("clock").innerText =
+      String(now.getHours()).padStart(2, "0") + ":" +
+      String(now.getMinutes()).padStart(2, "0");
+  }
+
+  function handleError(err) {
+    document.getElementById("status").innerText = "定位失败：" + err.message;
+    document.getElementById("gpsStatus").innerText = "GPS ERROR";
+  }
+
+  function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = deg => deg * Math.PI / 180;
+
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+</script>
+
+</body>
+</html>
